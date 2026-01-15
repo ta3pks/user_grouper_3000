@@ -1,6 +1,10 @@
 use axum::{Router, extract::Json, response::Json as ResponseJson, routing::post};
+use clap::Parser;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+
+mod config;
+use config::Config;
 
 #[derive(Deserialize)]
 struct Person {
@@ -37,9 +41,21 @@ async fn group_users(Json(people): Json<Vec<Person>>) -> ResponseJson<HashMap<St
 
 #[tokio::main]
 async fn main() {
+    let args: Vec<String> = std::env::args().collect();
+
+    if args.contains(&"--help".to_string()) {
+        Config::print_help();
+        std::process::exit(0);
+    }
+
+    let config = Config::parse();
+
     let app = Router::new().route("/group-users", post(group_users));
 
-    let listener = tokio::net::TcpListener::bind("0.0.0.0:3000").await.unwrap();
-    println!("Server listening on http://0.0.0.0:3000");
+    let addr = format!("{}:{}", config.host, config.port);
+    let listener = tokio::net::TcpListener::bind(&addr)
+        .await
+        .expect("failed to bind given addr {addr}");
+    println!("Server listening on http://{addr}");
     axum::serve(listener, app).await.unwrap();
 }
